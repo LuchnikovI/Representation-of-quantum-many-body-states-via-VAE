@@ -280,3 +280,28 @@ class ising_chain():
         tf.reset_default_graph()
         
         return samples
+      
+    '''the method returns value of povm induced mass function for a given index,
+    indices - np. array of indices with shape (n, sites), where n is number of indices,
+    sites is number of spins'''
+    def prob(self, indices):
+        
+        # update of local tensor
+        tensor_update = tf.placeholder(shape=(None, indices.shape[0], None), dtype=tf.complex64)
+        input_tensor = tf.placeholder(shape=(None, indices.shape[0], None), dtype=tf.complex64)
+        out_tensor = tf.einsum('ijk,kjm->ijm', input_tensor, tensor_update)
+        sess = tf.Session()
+        
+        # mass function
+        pmf = mp.prune(self.povm.pmf(self.psi), singletons=True)._lt._ltens
+        
+        # initial local tensor
+        in_tensor = pmf[0][:, indices[:, 0], :]
+        
+        #loop over a chain
+        for i in range(1, len(pmf)):
+            
+            update = pmf[i][:, indices[:, i], :]
+            in_tensor = sess.run(out_tensor, feed_dict={input_tensor:in_tensor, tensor_update:update})
+            
+        return in_tensor.reshape((in_tensor.shape[1],))
